@@ -14,6 +14,22 @@ class TreeNode{
         return this.parent != null;
     }
 
+    hasLeft(){
+        return this.left != null;
+    }
+
+    hasRight(){
+        return this.right != null;
+    }
+
+    hasRedChild(){
+        return (this.hasLeft() && this.getLeft().getColor() == RED) || (this.hasRight() && this.getRight().getColor() == RED);
+    }
+
+    hasBothChildBlack(){
+        return (!this.hasLeft() || this.getLeft().getColor() == BLACK) && (!this.hasRight() || this.getRight().getColor() == BLACK);
+    }
+
     isInLeft(){
         if(!this.hasParent()) {
             return false;
@@ -50,6 +66,18 @@ class TreeNode{
         return this.parent; 
     }
 
+    getSibling(){
+        if(!this.hasParent()){
+            return null;
+        }
+        
+        if(this.isInLeft()){
+            return this.getParent().getRight();
+        }else{
+            return this.getParent().getLeft();
+        }
+    }
+
     getUncle(){
         if(!this.hasParent()){
             // console.log('dont have parent');
@@ -72,8 +100,16 @@ class TreeNode{
         return this.color;
     }
 
+    getValue(){
+        return this.value;
+    }
+
     print(){
         process.stdout.write(` ${this.value}(${this.color==BLACK ? 'BLACK' : 'RED'}) `);
+    }
+
+    setValue(value){
+        this.value = value;
     }
 
     setLeft(ref){
@@ -96,6 +132,18 @@ class TreeNode{
 class RBTree{
     constructor(){
         this.root = null;
+    }
+
+    swapValues(nodeX, nodeY){
+        let tempVal = nodeX.getValue();
+        nodeX.setValue(nodeY.getValue());
+        nodeY.setValue(tempVal);
+    }
+
+    swapColor(nodeX, nodeY){
+        let tempColor = nodeX.getColor();
+        nodeX.setColor(nodeY.getColor());
+        nodeY.setColor(tempColor);
     }
 
     rotateLeft(curr){
@@ -140,6 +188,32 @@ class RBTree{
         x.setRight(curr);
 
         return x;
+    }
+
+    getSuccessor(node){
+        if(!node.getRight()) return null;
+
+        let temp = node.getRight();
+        while(temp.hasLeft()){
+            temp = temp.getLeft()
+        }
+
+        return temp;
+    }
+
+    search(value){
+        let temp = this.root;
+        while(temp){
+            if(temp.getValue() > value){
+                temp = temp.getLeft();
+            }else if(temp.getValue() < value){
+                temp = temp.getRight();
+            }else{
+                return temp;
+            }
+        }
+
+        return temp;
     }
 
     insert(value){
@@ -214,6 +288,141 @@ class RBTree{
         fixDoubleRed();
     }
 
+    delete(value){
+        console.log(`Deleting ${value} from tree`);
+        let v = this.search(value);
+        if(!v){
+            console.log(`Value ${value} not found in tree`);
+            return;
+        }
+
+        let BstReplace = (node) => {
+            if(!node.hasLeft()){
+                return node.getRight();
+            }else if(!node.hasRight()){
+                return node.getLeft();
+            }else{
+                return this.getSuccessor(node);
+            }
+        }
+
+        let fixDoubleBlack = (node) => {
+            if(node == this.root){
+                return;
+            }
+
+            let sibling = node.getSibling();
+            let parent = node.getParent();
+            if(sibling == null){
+                //no sibling, double black pushed to parent
+                fixDoubleBlack(parent);
+            }else{
+                if(sibling.getColor() == RED){
+                    parent.setColor(RED);
+                    sibling.setColor(BLACK);
+                    if(sibling.isInLeft()){
+                        parent = this.rotateRight(parent);
+                    }else{
+                        parent = this.rotateLeft(parent);
+                    }
+                    fixDoubleBlack(node);
+                }else{
+                    //sibling is black
+                    if(sibling.hasRedChild()){
+                        if(sibling.isInLeft()){
+                            if(sibling.hasLeft() && sibling.getLeft().getColor()==RED){
+                                //left left case
+                                sibling.getLeft().setColor(sibling.getColor());
+                                sibling.setColor(parent.getColor());
+                                parent = this.rotateRight(parent);
+                            }else{
+                                //left right case
+                                sibling.getRight().setColor(parent.getColor());
+                                sibling = this.rotateLeft(sibling);
+                                parent = this.rotateRight(parent);
+                            }
+                        }else{
+                            if(sibling.hasRight() && sibling.getRight().getColor()==RED){
+                                //right right case
+                                sibling.getRight().setColor(sibling.getColor());
+                                sibling.setColor(parent.getColor());
+                                parent = this.rotateLeft(parent);
+                            }else{
+                                //right left case
+                                sibling.getLeft().setColor(parent.getColor());
+                                sibling = this.rotateRight(sibling);
+                                parent = this.rotateLeft(parent);
+                            }
+                        }
+                    }else{
+                        //sibling has 2 black children
+                        sibling.setColor(RED);
+                        if(parent.getColor()==BLACK){
+                            fixDoubleBlack(parent);
+                        }else{
+                            parent.setColor(BLACK);
+                        }
+                    }
+                }
+            }
+        }
+
+        let deleteNode = (v) => {
+            let u = BstReplace(v);
+            let bothBlack = (v.getColor() == BLACK) && (u == null || u.getColor() == BLACK);
+
+            if(u == null){
+                //v is leaf
+                if(v == this.root){
+                    this.root = NULL;
+                    // delete v;
+                }else{
+                    if(bothBlack){
+                        fixDoubleBlack(v);
+                    }else if(v.getSibling()){
+                        v.getSibling().setColor(RED);
+                    }
+
+                    if(v.isInLeft()){
+                        v.getParent().setLeft(null);
+                    }else{
+                        v.getParent().setRight(null);
+                    }
+
+                    // delete v;
+                }
+            }else if(!v.hasLeft() || !v.hasRight()){
+                //v has one child
+                if(v == this.root){
+                    v.setValue(u.getValue());
+                    v.setLeft(null);
+                    v.setRight(null);
+                    u.setParent(null);
+                    // delete u;
+                }else{
+                    if(v.isInLeft()){
+                        v.getParent().setLeft(u);
+                    }else{
+                        v.getParent().setRight(u);
+                    }
+                    u.setParent(v.getParent());
+                    // delete v;
+                    if(bothBlack){
+                        fixDoubleBlack(u);
+                    }else{
+                        u.setColor(BLACK);
+                    }
+                }
+            }else{
+                //v has both child
+                this.swapValues(u, v);
+                deleteNode(u);
+            }
+        }
+
+        deleteNode(v);
+    }
+
     isEmpty(){
         return this.root == null;
     }
@@ -280,7 +489,27 @@ class RBTree{
 }
 
 let tree = new RBTree();
-tree.insert(100);
+tree.insert(7);
+tree.insert(3);
+tree.insert(18);
+tree.insert(10);
+tree.insert(22);
+tree.insert(8);
+tree.insert(11);
+tree.insert(26);
+tree.insert(2);
+tree.insert(6);
+tree.insert(13);
+tree.traversal();
+
+tree.delete(18);
+tree.delete(11);
+tree.delete(3);
+tree.delete(10);
+tree.delete(22);
+tree.traversal();
+
+/* tree.insert(100);
 tree.traversal();
 tree.insert(50);
 tree.traversal();
@@ -294,6 +523,14 @@ tree.insert(150);
 tree.traversal();
 tree.insert(130);
 tree.traversal();
+
+console.log('Searching::');
+tree.search(130).print();
+tree.search(150).print();
+console.log('\n');
+
+tree.delete(100);
+tree.traversal(); */
 
 // console.log(require('util').inspect(tree,{depth: null}));
 // tree.root.getLeft().getLeft().print();
