@@ -42,6 +42,10 @@ def calculateSpan(arr, n):
             opList[i] = cnt
     return opList
 
+#####
+# one more way to do this is using stack, try to implement that as well
+####
+
 testCases = [
     [100, 80, 60, 70, 60, 75, 85],
     [10, 4, 5, 90, 120, 80]
